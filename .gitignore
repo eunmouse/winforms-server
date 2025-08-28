@@ -1,0 +1,21 @@
+# Visual Studio cache
+.vs/
+*.user
+*.suo
+
+# Build results
+bin/
+obj/
+[Bb]uild/
+[Ll]og/
+
+# Others
+*.pdb
+*.cache
+*.log
+*.ldb
+*.opendb
+
+# NuGet
+*.nupkg
+packages/
