@@ -112,6 +112,7 @@
             this.btnSend.TabIndex = 8;
             this.btnSend.Text = "전송";
             this.btnSend.UseVisualStyleBackColor = true;
+            this.btnSend.Click += new System.EventHandler(this.btnSend_Click);
             // 
             // frmServer
             // 
@@ -129,6 +130,7 @@
             this.Controls.Add(this.lblIP);
             this.Name = "frmServer";
             this.Text = "Server";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.frmServer_FormClosing);
             this.Load += new System.EventHandler(this.frmServer_Load);
             this.ResumeLayout(false);
             this.PerformLayout();

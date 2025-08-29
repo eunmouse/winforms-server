@@ -1,6 +1,8 @@
 ﻿using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -10,6 +12,11 @@ namespace MyServer_001
     {
         private TcpListener server;
         private TcpClient client;
+
+        private bool connected;
+        private NetworkStream stream;
+        // private StreamReader reader;
+        // private StreamWriter writer;
 
         public frmServer()
         {
@@ -28,7 +35,17 @@ namespace MyServer_001
 
                 // 클라이언트의 연결 요청이 오면 TcpClient 반환
                 client = server.AcceptTcpClient();
+                connected = true;
                 writeRtbChat("클라이언트 연결됨...");
+                
+                // 클라이언트에서 보낸 형식<>서버에서 읽는 방식이 안맞는듯 
+                //reader = new StreamReader(stream);
+                //writer = new StreamWriter(stream); 
+
+                // Receive 스레드 생성 
+                Thread receiveThread = new Thread(new ThreadStart(Receive));
+                receiveThread.IsBackground = true;
+                receiveThread.Start();
             }
             catch (Exception ex)
             {
@@ -36,6 +53,34 @@ namespace MyServer_001
             }
         }
         
+        private void Receive()
+        {
+            try
+            {
+                while (connected)
+                {
+                    // 클라이언트 스트림 값 받아오기
+                    stream = client.GetStream();
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+
+                    // 반환값은 실제로 읽은 바이트 수 (스트림 끝 EOF 도달하면 0 리턴)
+                    while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        string receivedChat = Encoding.Default.GetString(buffer, 0, bytesRead);
+                        writeRtbChat("클라이언트 : " + receivedChat);
+                    }
+                    //string receivedChat = reader.ReadLine();
+                    //if (receivedChat != null && receivedChat.Length > 0)
+                    //    writeRtbChat("클라이언트 : " + receivedChat);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"***받기 실패*** {ex.Message}");
+            }
+        }
+
         private void writeRtbChat(string str)
         {
             // rtbChat 객체는 UI 스레드(메인 스레드) 에서만 접근 가능하여, Invoke 로 넘겨서 처리 
@@ -43,7 +88,7 @@ namespace MyServer_001
             {
                 rtbChat.Invoke((MethodInvoker)(() =>
                 {
-                    rtbChat.Text = str + Environment.NewLine; // 줄바꿈
+                    rtbChat.AppendText(str + Environment.NewLine); // 줄바꿈
                 }));
             }
         }
@@ -60,6 +105,47 @@ namespace MyServer_001
         {
             txtIP.Text = "127.1.1.0";
             txtPort.Text = "5003";
+        }
+
+        private void btnSend_Click(object sender, EventArgs e)
+        {
+            // Write 스레드 생성
+            Thread writeThread = new Thread(new ThreadStart(Write));
+            writeThread.IsBackground = true;
+            writeThread.Start();
+        }
+
+        private void Write()
+        {
+            try
+            {
+                // 클라이언트에게 메시지 전송 
+                string msg = txtMessage.Text;
+                byte[] buffer = new byte[1024];
+                stream.Write(buffer, 0, buffer.Length);
+                writeRtbChat("서버 : " + msg);
+                
+                // txtMessage 객체는 UI 스레드(메인 스레드) 에서만 접근 가능하여, Invoke 로 넘겨서 처리 
+                if (txtMessage.InvokeRequired == true)
+                {
+                    txtMessage.Invoke((MethodInvoker)(() =>
+                    {
+                        txtMessage.Clear();
+                    }));
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"***받기 실패*** {ex.Message}");
+                writeRtbChat("서버 메세지 전송 실패");
+            }
+            
+        }
+
+        private void frmServer_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            connected = false;
+            client.Close(); // TCP 연결 닫음
         }
     }
 }
