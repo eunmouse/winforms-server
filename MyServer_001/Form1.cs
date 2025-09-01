@@ -15,8 +15,6 @@ namespace MyServer_001
 
         private bool connected;
         private NetworkStream stream;
-        // private StreamReader reader;
-        // private StreamWriter writer;
 
         public frmServer()
         {
@@ -37,10 +35,6 @@ namespace MyServer_001
                 client = server.AcceptTcpClient();
                 connected = true;
                 writeRtbChat("클라이언트 연결됨...");
-                
-                // 클라이언트에서 보낸 형식<>서버에서 읽는 방식이 안맞는듯 
-                //reader = new StreamReader(stream);
-                //writer = new StreamWriter(stream); 
 
                 // Receive 스레드 생성 
                 Thread receiveThread = new Thread(new ThreadStart(Receive));
@@ -64,15 +58,13 @@ namespace MyServer_001
                     byte[] buffer = new byte[1024];
                     int bytesRead;
 
-                    // 반환값은 실제로 읽은 바이트 수 (스트림 끝 EOF 도달하면 0 리턴)
-                    while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+                    // 반환값은 실제로 읽은 바이트 수 (스트림 끝 EOF 도달하면 0 리턴), 연결이 끊어지면 0 반환
+                    while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) != 0)
                     {
+                        // 바이트 -> 문자열로 디코딩 
                         string receivedChat = Encoding.Default.GetString(buffer, 0, bytesRead);
                         writeRtbChat("클라이언트 : " + receivedChat);
                     }
-                    //string receivedChat = reader.ReadLine();
-                    //if (receivedChat != null && receivedChat.Length > 0)
-                    //    writeRtbChat("클라이언트 : " + receivedChat);
                 }
             }
             catch (Exception ex)
@@ -121,8 +113,11 @@ namespace MyServer_001
             {
                 // 클라이언트에게 메시지 전송 
                 string msg = txtMessage.Text;
-                byte[] buffer = new byte[1024];
-                stream.Write(buffer, 0, buffer.Length);
+
+                // 문자열 -> 바이트로 인코딩 
+                byte[] byteMsg = Encoding.Default.GetBytes(msg);
+
+                stream.Write(byteMsg, 0, byteMsg.Length);
                 writeRtbChat("서버 : " + msg);
                 
                 // txtMessage 객체는 UI 스레드(메인 스레드) 에서만 접근 가능하여, Invoke 로 넘겨서 처리 
@@ -145,7 +140,7 @@ namespace MyServer_001
         private void frmServer_FormClosing(object sender, FormClosingEventArgs e)
         {
             connected = false;
-            client.Close(); // TCP 연결 닫음
+            client.Close(); // TCP 연결 닫음, stream 도 같이 끊김
         }
     }
 }
