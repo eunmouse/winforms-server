@@ -37,7 +37,7 @@ namespace MyServer_001
                 writeRtbChat("클라이언트 연결됨...");
 
                 // Receive 스레드 생성 
-                Thread receiveThread = new Thread(new ThreadStart(Receive));
+                Thread receiveThread = new Thread(Receive);
                 receiveThread.IsBackground = true;
                 receiveThread.Start();
             }
@@ -88,7 +88,7 @@ namespace MyServer_001
         private void button1_Click(object sender, EventArgs e)
         {
             // 메인 스레드와 독립적으로 실행되는 작업 스레드 생성
-            Thread listenThread = new Thread(new ThreadStart(Listen));
+            Thread listenThread = new Thread(Listen);
             listenThread.IsBackground = true;
             listenThread.Start();
         }
@@ -102,7 +102,7 @@ namespace MyServer_001
         private void btnSend_Click(object sender, EventArgs e)
         {
             // Write 스레드 생성
-            Thread writeThread = new Thread(new ThreadStart(Write));
+            Thread writeThread = new Thread(Write);
             writeThread.IsBackground = true;
             writeThread.Start();
         }
@@ -112,21 +112,25 @@ namespace MyServer_001
             try
             {
                 // 클라이언트에게 메시지 전송 
-                string msg = txtMessage.Text;
+                string msg = txtMessage.Text.Trim();
 
-                // 문자열 -> 바이트로 인코딩 
-                byte[] byteMsg = Encoding.Default.GetBytes(msg);
-
-                stream.Write(byteMsg, 0, byteMsg.Length);
-                writeRtbChat("서버 : " + msg);
-                
-                // txtMessage 객체는 UI 스레드(메인 스레드) 에서만 접근 가능하여, Invoke 로 넘겨서 처리 
-                if (txtMessage.InvokeRequired == true)
+                // 공백이 아닌 경우에만 메시지 전송되도록 수정 
+                if (msg != "")
                 {
-                    txtMessage.Invoke((MethodInvoker)(() =>
+                    // 문자열 -> 바이트로 인코딩 
+                    byte[] byteMsg = Encoding.Default.GetBytes(msg);
+
+                    stream.Write(byteMsg, 0, byteMsg.Length);
+                    writeRtbChat("서버 : " + msg);
+
+                    // txtMessage 객체는 UI 스레드(메인 스레드) 에서만 접근 가능하여, Invoke 로 넘겨서 처리 
+                    if (txtMessage.InvokeRequired == true)
                     {
-                        txtMessage.Clear();
-                    }));
+                        txtMessage.Invoke((MethodInvoker)(() =>
+                        {
+                            txtMessage.ResetText();
+                        }));
+                    }
                 }
             }
             catch (Exception ex)
