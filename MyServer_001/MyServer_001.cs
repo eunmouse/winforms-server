@@ -95,7 +95,7 @@ namespace MyServer_001
 
         private void frmServer_Load(object sender, EventArgs e)
         {
-            txtIP.Text = "127.1.1.0";
+            txtIP.Text = "127.0.0.1";
             txtPort.Text = "5003";
         }
 
