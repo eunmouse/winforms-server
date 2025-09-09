@@ -86,7 +86,10 @@ namespace MyServer_001
                     {
                         // 바이트 -> 문자열로 디코딩 
                         string receivedChat = Encoding.Default.GetString(buffer, 0, bytesRead);
-                        writeRtbChat("클라이언트 : " + receivedChat);
+                        string[] parts = receivedChat.Split('|');
+                        string userName = parts[0];
+                        string userMsg = parts[1];
+                        writeRtbChat(userName + " : " + userMsg);
                     }
 
                     // TcpClient 닫으면 내부적으로 연결된 NetworkStream 도 닫힘 
