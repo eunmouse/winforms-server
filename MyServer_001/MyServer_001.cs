@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -10,11 +11,14 @@ namespace MyServer_001
 {
     public partial class frmServer : Form
     {
-        private TcpListener server;
-        private TcpClient client;
+        private TcpListener server; // 서버 소켓 
+        private TcpClient client; // 클라이언트 소켓 
 
         private bool connected;
         private NetworkStream stream;
+
+        private static int count; // 사용자수
+        public Dictionary<TcpClient, string> clientList = new Dictionary<TcpClient, string>(); // 클라이언트마다 리스트 추가
 
         public frmServer()
         {
@@ -23,18 +27,15 @@ namespace MyServer_001
 
         private void Listen()
         {
-            // 서버 연결
+            // 서버 소켓은 처음 1회만 연결
             try
             {
                 int portNum = Convert.ToInt32(txtPort.Text);
                 server = new TcpListener(IPAddress.Parse(txtIP.Text), portNum);
                 server.Start();
                 writeRtbChat("서버 준비... 클라이언트 기다리는 중...");
-
-                // 클라이언트의 연결 요청이 오면 TcpClient 반환
-                client = server.AcceptTcpClient();
                 connected = true;
-                writeRtbChat("클라이언트 연결됨...");
+                MakeTxtReadOnly();
 
                 // Receive 스레드 생성 
                 Thread receiveThread = new Thread(Receive);
@@ -46,13 +47,35 @@ namespace MyServer_001
                 Console.WriteLine($"***연결 실패*** {ex.Message}");
             }
         }
-        
+        // 연결 이후 IP 주소 / 포트번호 비활성화 
+        private void MakeTxtReadOnly()
+        {
+            if (txtIP.InvokeRequired == true)
+            {
+                txtIP.Invoke((MethodInvoker)(() =>
+                {
+                    txtIP.ReadOnly = true;
+                }));
+            }
+
+            if (txtPort.InvokeRequired == true)
+            {
+                txtPort.Invoke((MethodInvoker)(() =>
+                {
+                    txtPort.ReadOnly = true;
+                }));
+            }
+        }
         private void Receive()
         {
             try
             {
                 while (connected)
                 {
+                    // 클라이언트의 연결 요청이 오면 TcpClient 반환
+                    client = server.AcceptTcpClient();
+                    writeRtbChat("클라이언트 연결됨...");
+                   
                     // 클라이언트 스트림 값 받아오기
                     stream = client.GetStream();
                     byte[] buffer = new byte[1024];
@@ -65,6 +88,10 @@ namespace MyServer_001
                         string receivedChat = Encoding.Default.GetString(buffer, 0, bytesRead);
                         writeRtbChat("클라이언트 : " + receivedChat);
                     }
+
+                    // TcpClient 닫으면 내부적으로 연결된 NetworkStream 도 닫힘 
+                    client.Close();
+                    writeRtbChat("클라이언트와의 연결 끊김...");
                 }
             }
             catch (Exception ex)
@@ -87,7 +114,7 @@ namespace MyServer_001
 
         private void button1_Click(object sender, EventArgs e)
         {
-            // 메인 스레드와 독립적으로 실행되는 작업 스레드 생성
+            // 연결 버튼, 메인 스레드와 독립적으로 실행되는 작업 스레드 생성
             Thread listenThread = new Thread(Listen);
             listenThread.IsBackground = true;
             listenThread.Start();
@@ -132,6 +159,7 @@ namespace MyServer_001
                         }));
                     }
                 }
+            
             }
             catch (Exception ex)
             {
