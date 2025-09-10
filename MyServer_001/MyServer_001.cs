@@ -74,12 +74,16 @@ namespace MyServer_001
                 {
                     // 클라이언트의 연결 요청이 오면 TcpClient 반환
                     client = server.AcceptTcpClient();
-                    writeRtbChat("클라이언트 연결됨...");
-                   
+                    
                     // 클라이언트 스트림 값 받아오기
                     stream = client.GetStream();
                     byte[] buffer = new byte[1024];
                     int bytesRead;
+                    int bytes = stream.Read(buffer, 0, buffer.Length);
+
+                    // 바이트 -> 문자열로 디코딩 
+                    string userName = Encoding.Default.GetString(buffer, 0, bytes);
+                    writeRtbChat("[" + userName + "] " + "님이 입장하셨습니다.");
 
                     // 반환값은 실제로 읽은 바이트 수 (스트림 끝 EOF 도달하면 0 리턴), 연결이 끊어지면 0 반환
                     while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) != 0)
@@ -87,14 +91,14 @@ namespace MyServer_001
                         // 바이트 -> 문자열로 디코딩 
                         string receivedChat = Encoding.Default.GetString(buffer, 0, bytesRead);
                         string[] parts = receivedChat.Split('|');
-                        string userName = parts[0];
+                        string user = parts[0];
                         string userMsg = parts[1];
-                        writeRtbChat(userName + " : " + userMsg);
+                        writeRtbChat(user + " : " + userMsg);
                     }
 
                     // TcpClient 닫으면 내부적으로 연결된 NetworkStream 도 닫힘 
                     client.Close();
-                    writeRtbChat("클라이언트와의 연결 끊김...");
+                    writeRtbChat("[" + userName + "] " + "님이 퇴장하셨습니다.");
                 }
             }
             catch (Exception ex)
