@@ -42,13 +42,10 @@ namespace MyServer_001
             clientList.Add(client, userName);
             form.writeRtbChat("[" + userName + "] " + "님이 입장하셨습니다.");
 
-            // 작업스레드 생성
-            Thread handleThread = new Thread(doChat);
-            handleThread.IsBackground = true;
-            handleThread.Start();
+            doChat(userName);
         }
 
-        public void doChat()
+        public void doChat(string user)
         {
             byte[] buffer = new byte[1024];
             int bytesRead;
@@ -65,9 +62,11 @@ namespace MyServer_001
                 form.writeRtbChat(userName + " : " + userMsg);
             }
 
+            form.writeRtbChat("[" + user + "] " + "님이 퇴장하셨습니다.");
+            // 클라이언트 삭제
+            clientList.Remove(client);
             // TcpClient 닫으면 내부적으로 연결된 NetworkStream 도 닫힘 
             client.Close();
-            form.writeRtbChat("[" + userName + "] " + "님이 퇴장하셨습니다.");
         }
     }
 }

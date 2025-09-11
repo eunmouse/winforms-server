@@ -36,10 +36,27 @@ namespace MyServer_001
                 MakeTxtReadOnly();
                 writeRtbChat("서버 준비... 클라이언트 기다리는 중...");
 
-                // Receive 스레드 생성 
-                Thread receiveThread = new Thread(Receive);
-                receiveThread.IsBackground = true;
-                receiveThread.Start();
+                while (connected)
+                {
+                    // 접속대기, 클라이언트 연결 요청이 오면 TcpClient 반환
+                    client = server.AcceptTcpClient();
+
+                    // 클라이언트 전용 핸들러 생성 
+                    HandleClient handleClient = new HandleClient(this);
+
+                    // 각 클라이언트 분리 실행 
+                    Task.Run(() =>
+                    {
+                        try
+                        {
+                            handleClient.startClient(client, clientList);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("클라이언트 처리 중 오류 발생 :" + ex.Message);
+                        }
+                    });
+                }
             }
             catch (Exception ex)
             {
@@ -51,31 +68,6 @@ namespace MyServer_001
         {
             txtIP.SafeInvoke(() => txtIP.ReadOnly = true);
             txtPort.SafeInvoke(() => txtPort.ReadOnly = true);
-        }
-
-        private void Receive()
-        {
-            while (connected)
-            {
-                // 접속대기, 클라이언트 연결 요청이 오면 TcpClient 반환
-                client = server.AcceptTcpClient();
-            
-                // 클라이언트 전용 핸들러 생성 
-                HandleClient handleClient = new HandleClient(this);
-            
-                // 각 클라이언트 분리 실행 
-                Task.Run(() =>
-                {
-                    try
-                    {
-                        handleClient.startClient(client, clientList);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("클라이언트 처리 중 오류 발생 :" + ex.Message);
-                    }
-                });
-            }          
         }
 
         // 접근제한자 public 으로 설정하여, 다른 클래스에서도 접근 가능하도록 수정 
@@ -115,12 +107,17 @@ namespace MyServer_001
         {
             try
             {
-                // 문자열 -> 바이트로 인코딩 
-                byte[] byteMsg = Encoding.Default.GetBytes(msg);
+                foreach (var pair in clientList)
+                {
+                    TcpClient client = pair.Key;
 
-                stream = client.GetStream();
-                stream.Write(byteMsg, 0, byteMsg.Length);
-                writeRtbChat("[서버 전체 공지] : " + msg);
+                    // 문자열 -> 바이트로 인코딩 
+                    byte[] byteMsg = Encoding.Default.GetBytes("[서버 전체 공지] : " + msg);
+
+                    stream = client.GetStream();
+                    stream.Write(byteMsg, 0, byteMsg.Length);
+                }
+                writeRtbChat(msg);
             }
             catch (Exception ex)
             {
