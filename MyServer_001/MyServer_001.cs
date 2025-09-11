@@ -13,12 +13,12 @@ namespace MyServer_001
     {
         private TcpListener server; // 서버 소켓 
         private TcpClient client; // 클라이언트 소켓 
+        private Dictionary<TcpClient, string> clientList = new Dictionary<TcpClient, string>();
+
+        private HandleClient handleClient;
 
         private bool connected;
         private NetworkStream stream;
-
-        private static int count; // 사용자수
-        public Dictionary<TcpClient, string> clientList = new Dictionary<TcpClient, string>(); // 클라이언트마다 리스트 추가
 
         public frmServer()
         {
@@ -50,21 +50,8 @@ namespace MyServer_001
         // 연결 이후 IP 주소 / 포트번호 비활성화 
         private void MakeTxtReadOnly()
         {
-            if (txtIP.InvokeRequired == true)
-            {
-                txtIP.Invoke((MethodInvoker)(() =>
-                {
-                    txtIP.ReadOnly = true;
-                }));
-            }
-
-            if (txtPort.InvokeRequired == true)
-            {
-                txtPort.Invoke((MethodInvoker)(() =>
-                {
-                    txtPort.ReadOnly = true;
-                }));
-            }
+            txtIP.SafeInvoke(() => txtIP.ReadOnly = true);
+            txtPort.SafeInvoke(() => txtPort.ReadOnly = true);
         }
         private void Receive()
         {
@@ -72,33 +59,11 @@ namespace MyServer_001
             {
                 while (connected)
                 {
-                    // 클라이언트의 연결 요청이 오면 TcpClient 반환
+                    // 접속대기, 클라이언트 연결 요청이 오면 TcpClient 반환
                     client = server.AcceptTcpClient();
-                    
-                    // 클라이언트 스트림 값 받아오기
-                    stream = client.GetStream();
-                    byte[] buffer = new byte[1024];
-                    int bytesRead;
-                    int bytes = stream.Read(buffer, 0, buffer.Length);
 
-                    // 바이트 -> 문자열로 디코딩 
-                    string userName = Encoding.Default.GetString(buffer, 0, bytes);
-                    writeRtbChat("[" + userName + "] " + "님이 입장하셨습니다.");
-
-                    // 반환값은 실제로 읽은 바이트 수 (스트림 끝 EOF 도달하면 0 리턴), 연결이 끊어지면 0 반환
-                    while ((bytesRead = stream.Read(buffer, 0, buffer.Length)) != 0)
-                    {
-                        // 바이트 -> 문자열로 디코딩 
-                        string receivedChat = Encoding.Default.GetString(buffer, 0, bytesRead);
-                        string[] parts = receivedChat.Split('|');
-                        string user = parts[0];
-                        string userMsg = parts[1];
-                        writeRtbChat(user + " : " + userMsg);
-                    }
-
-                    // TcpClient 닫으면 내부적으로 연결된 NetworkStream 도 닫힘 
-                    client.Close();
-                    writeRtbChat("[" + userName + "] " + "님이 퇴장하셨습니다.");
+                    handleClient = new HandleClient(this);
+                    handleClient.startClient(client, clientList);
                 }
             }
             catch (Exception ex)
@@ -107,16 +72,11 @@ namespace MyServer_001
             }
         }
 
-        private void writeRtbChat(string str)
+        // 접근제한자 public 으로 설정하여, 다른 클래스에서도 접근 가능하도록 수정 
+        public void writeRtbChat(string str)
         {
             // rtbChat 객체는 UI 스레드(메인 스레드) 에서만 접근 가능하여, Invoke 로 넘겨서 처리 
-            if (rtbChat.InvokeRequired == true)
-            {
-                rtbChat.Invoke((MethodInvoker)(() =>
-                {
-                    rtbChat.AppendText(str + Environment.NewLine); // 줄바꿈
-                }));
-            }
+            rtbChat.SafeInvoke(() => rtbChat.AppendText(str + Environment.NewLine)); // 줄바꿈
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -135,13 +95,13 @@ namespace MyServer_001
 
         private void btnSend_Click(object sender, EventArgs e)
         {
-            // Write 스레드 생성
-            Thread writeThread = new Thread(Write);
+            // Send 스레드 생성
+            Thread writeThread = new Thread(Send);
             writeThread.IsBackground = true;
             writeThread.Start();
         }
 
-        private void Write()
+        private void Send()
         {
             try
             {
@@ -154,23 +114,18 @@ namespace MyServer_001
                     // 문자열 -> 바이트로 인코딩 
                     byte[] byteMsg = Encoding.Default.GetBytes(msg);
 
+                    stream = client.GetStream();
                     stream.Write(byteMsg, 0, byteMsg.Length);
                     writeRtbChat("서버 : " + msg);
 
                     // txtMessage 객체는 UI 스레드(메인 스레드) 에서만 접근 가능하여, Invoke 로 넘겨서 처리 
-                    if (txtMessage.InvokeRequired == true)
-                    {
-                        txtMessage.Invoke((MethodInvoker)(() =>
-                        {
-                            txtMessage.ResetText();
-                        }));
-                    }
+                    txtMessage.SafeInvoke(() => txtMessage.ResetText());
                 }
             
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"***받기 실패*** {ex.Message}");
+                Console.WriteLine($"***전송 실패*** {ex.Message}");
                 writeRtbChat("서버 메세지 전송 실패");
             }
             
