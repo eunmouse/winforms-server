@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace MyServer_001
@@ -14,8 +15,6 @@ namespace MyServer_001
         private TcpListener server; // 서버 소켓 
         private TcpClient client; // 클라이언트 소켓 
         private Dictionary<TcpClient, string> clientList = new Dictionary<TcpClient, string>();
-
-        private HandleClient handleClient;
 
         private bool connected;
         private NetworkStream stream;
@@ -33,9 +32,9 @@ namespace MyServer_001
                 int portNum = Convert.ToInt32(txtPort.Text);
                 server = new TcpListener(IPAddress.Parse(txtIP.Text), portNum);
                 server.Start();
-                writeRtbChat("서버 준비... 클라이언트 기다리는 중...");
                 connected = true;
                 MakeTxtReadOnly();
+                writeRtbChat("서버 준비... 클라이언트 기다리는 중...");
 
                 // Receive 스레드 생성 
                 Thread receiveThread = new Thread(Receive);
@@ -44,7 +43,7 @@ namespace MyServer_001
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"***연결 실패*** {ex.Message}");
+                Console.WriteLine("연결 중 오류 발생 :" + ex.Message);
             }
         }
         // 연결 이후 IP 주소 / 포트번호 비활성화 
@@ -53,23 +52,30 @@ namespace MyServer_001
             txtIP.SafeInvoke(() => txtIP.ReadOnly = true);
             txtPort.SafeInvoke(() => txtPort.ReadOnly = true);
         }
+
         private void Receive()
         {
-            try
+            while (connected)
             {
-                while (connected)
+                // 접속대기, 클라이언트 연결 요청이 오면 TcpClient 반환
+                client = server.AcceptTcpClient();
+            
+                // 클라이언트 전용 핸들러 생성 
+                HandleClient handleClient = new HandleClient(this);
+            
+                // 각 클라이언트 분리 실행 
+                Task.Run(() =>
                 {
-                    // 접속대기, 클라이언트 연결 요청이 오면 TcpClient 반환
-                    client = server.AcceptTcpClient();
-
-                    handleClient = new HandleClient(this);
-                    handleClient.startClient(client, clientList);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"***받기 실패*** {ex.Message}");
-            }
+                    try
+                    {
+                        handleClient.startClient(client, clientList);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("클라이언트 처리 중 오류 발생 :" + ex.Message);
+                    }
+                });
+            }          
         }
 
         // 접근제한자 public 으로 설정하여, 다른 클래스에서도 접근 가능하도록 수정 
@@ -95,37 +101,30 @@ namespace MyServer_001
 
         private void btnSend_Click(object sender, EventArgs e)
         {
-            // Send 스레드 생성
-            Thread writeThread = new Thread(Send);
-            writeThread.IsBackground = true;
-            writeThread.Start();
+            string msg = txtMessage.Text.Trim();
+
+            if (!string.IsNullOrEmpty(msg))
+            {
+                // 단순 텍스트 브로드캐스트라서 메서드 직접 호출 
+                SendMsgAll(msg);
+                txtMessage.Clear();
+            }
         }
 
-        private void Send()
+        private void SendMsgAll(string msg)
         {
             try
             {
-                // 클라이언트에게 메시지 전송 
-                string msg = txtMessage.Text.Trim();
+                // 문자열 -> 바이트로 인코딩 
+                byte[] byteMsg = Encoding.Default.GetBytes(msg);
 
-                // 공백이 아닌 경우에만 메시지 전송되도록 수정 
-                if (msg != "")
-                {
-                    // 문자열 -> 바이트로 인코딩 
-                    byte[] byteMsg = Encoding.Default.GetBytes(msg);
-
-                    stream = client.GetStream();
-                    stream.Write(byteMsg, 0, byteMsg.Length);
-                    writeRtbChat("서버 : " + msg);
-
-                    // txtMessage 객체는 UI 스레드(메인 스레드) 에서만 접근 가능하여, Invoke 로 넘겨서 처리 
-                    txtMessage.SafeInvoke(() => txtMessage.ResetText());
-                }
-            
+                stream = client.GetStream();
+                stream.Write(byteMsg, 0, byteMsg.Length);
+                writeRtbChat("[서버 전체 공지] : " + msg);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"***전송 실패*** {ex.Message}");
+                Console.WriteLine("전송 실패 : " + ex.Message);
                 writeRtbChat("서버 메세지 전송 실패");
             }
             
