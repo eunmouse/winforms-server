@@ -73,8 +73,7 @@ namespace MyServer_001
         // 접근제한자 public 으로 설정하여, 다른 클래스에서도 접근 가능하도록 수정 
         public void writeRtbChat(string str)
         {
-            // rtbChat 객체는 UI 스레드(메인 스레드) 에서만 접근 가능하여, Invoke 로 넘겨서 처리 
-            rtbChat.SafeInvoke(() => rtbChat.AppendText(str + Environment.NewLine)); // 줄바꿈
+            rtbChat.SafeInvoke(() => rtbChat.AppendText(str + Environment.NewLine));
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -130,7 +129,18 @@ namespace MyServer_001
         private void frmServer_FormClosing(object sender, FormClosingEventArgs e)
         {
             connected = false;
-            client.Close(); // TCP 연결 닫음, stream 도 같이 끊김
+            
+            // 클라이언트 소켓 닫기 
+            if (client != null)
+            {
+                client.Close(); // TCP 연결 닫음, stream 도 같이 끊김
+            }
+            
+            // 서버 리스너 닫기 
+            if (server != null)
+            {
+                server.Stop();
+            }
         }
     }
 }

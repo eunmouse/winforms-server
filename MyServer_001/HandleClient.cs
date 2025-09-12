@@ -12,7 +12,6 @@ namespace MyServer_001
     {
         private frmServer form;
 
-        // 클라이언트 소켓 
         private TcpClient client = null;
         private Dictionary<TcpClient, string> clientList = null;
 
@@ -63,10 +62,8 @@ namespace MyServer_001
             }
 
             form.writeRtbChat("[" + user + "] " + "님이 퇴장하셨습니다.");
-            // 클라이언트 삭제
             clientList.Remove(client);
-            // TcpClient 닫으면 내부적으로 연결된 NetworkStream 도 닫힘 
-            client.Close();
+            client.Close(); // TcpClient 닫으면 내부적으로 연결된 NetworkStream 도 닫힘 
         }
     }
 }
